@@ -1,1 +1,5 @@
 key.pem
+.env
+config.js
+commands.txt
+TODO.md
