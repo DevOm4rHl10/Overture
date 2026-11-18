@@ -1,7 +1,7 @@
 export const BASE_URL = "https://ws.audioscrobbler.com/2.0/?";
-import { LASTFM_API_KEY } from "config.js";
+import { LASTFM_API_KEY } from "./config.js";
 
-export class LastFmError extends Error
+export class LastfmError extends Error
 {
     constructor(code, message, cause)
     {
@@ -14,27 +14,29 @@ export class LastFmError extends Error
 
 
 
-function validateArgs(method, params){
-    if (typeof method !== "string"){
-        throw new TypeError("Method must be a string");
+function validateArgs(method, params)
+{
+    // Check that method is a non-empty string
+    if (typeof method !== "string" || method.trim() === "")
+    {
+        throw new TypeError("Method must be a non-empty string");
     }
 
-    if (params == null) {
-        throw new TypeError("Params can't be null");
+    // Reject null or undefined
+    if (params == null)
+    {
+        throw new TypeError("Params cannot be null");
     }
 
-     // check that its an object
-    if (typeof params !== "object"){
+    // Check that params is an object, not an array
+    if (typeof params !== "object" || Array.isArray(params))
+    {
         throw new TypeError("Params must be an object");
     }
 
-    // now that its not null, check empty array or empty object
-    if (Object.keys(params).length == 0)
-    {
-        throw new TypeError("Params can't be empty");
-    }
-
+    // Empty objects are allowed
 }
+
 
 function buildUrl(method, params){
 
