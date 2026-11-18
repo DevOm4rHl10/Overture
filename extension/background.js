@@ -1,6 +1,6 @@
 import { login, logout, getAccessToken } from "./auth.js";
 import { spotifyGet } from "./spotify.js";
-
+import { loadArtists as loadSpotify} from "./sources/spotify.js";
 const handlers = {
   async STATUS() {
     if (!(await getAccessToken())) return { loggedIn: false };
@@ -15,6 +15,12 @@ const handlers = {
     await logout();
     return { loggedIn: false };
   },
+
+  async TEST_SOURCE(){
+    const artists = await loadSpotify();
+    return {artists : artists};
+  },
+
 };
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -27,3 +33,4 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   return true; // keeps the channel open for the async response
 });
+
