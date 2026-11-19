@@ -123,6 +123,14 @@ describe("Request URL", () =>
 // ─────────────────────────────────────────────────────────────
 // 2. Encoding: artist names that break naive URL building
 // ─────────────────────────────────────────────────────────────
+// Last.fm's server decodes parameter values TWICE (measured with
+// experiments/plus-sign-check.js: "Florence + the Machine" sent normally
+// arrives as "Florence   The Machine"). So the wrapper must escape "%" and "+"
+// once more before the normal encoding. These helpers reproduce what
+// Last.fm's server does with what the wrapper sends.
+const firstDecode = (url, key) => url.searchParams.get(key);                       // normal decoding
+const lastfmDecode = (url, key) => decodeURIComponent(firstDecode(url, key).replace(/\+/g, " ")); // Last.fm's extra pass
+
 describe("Encoding of artist names", () =>
 {
     const tricky = [
@@ -139,17 +147,63 @@ describe("Encoding of artist names", () =>
         "宇多田ヒカル",           // Japanese
         "Beyoncé",               // accent
         "  spaced  out  ",       // spaces are sent as given (cleaning is not the wrapper's job)
+        // Real artists that Last.fm couldn't find before the double-escaping fix
+        "Florence + the Machine",
+        "Ich + Ich",
+        "Queen + Paul Rodgers",
+        "nobodyknows+",
+        "+44",
+        "C++",
+        "50%+1",                 // both special characters together
+        "%2B",                   // a name that looks like an escape sequence
     ];
 
     for (const artist of tricky)
     {
-        test(`round-trips "${artist}" exactly`, async (t) =>
+        test(`Last.fm receives "${artist}" exactly`, async (t) =>
         {
             const url = await requestedUrl(t, "artist.getsimilar", { artist, limit: 10 });
-            assert.equal(url.searchParams.get("artist"), artist);
-            assert.equal(url.searchParams.get("limit"), "10", "a special character broke the next parameter");
+            assert.equal(lastfmDecode(url, "artist"), artist);
+            assert.equal(firstDecode(url, "limit"), "10", "a special character broke the next parameter");
         });
     }
+
+    test("+ is sent encoded twice (%252B), so Last.fm's second decoding keeps it", async (t) =>
+    {
+        const url = await requestedUrl(t, "artist.getsimilar", { artist: "Florence + the Machine" });
+        assert.match(url.search, /%252B/);
+        assert.equal(firstDecode(url, "artist"), "Florence %2B the Machine");
+    });
+
+    test("% is sent encoded twice (%2525)", async (t) =>
+    {
+        const url = await requestedUrl(t, "artist.getsimilar", { artist: "100% Pure" });
+        assert.match(url.search, /%2525/);
+        assert.equal(firstDecode(url, "artist"), "100%25 Pure");
+    });
+
+    test("names without + or % are not changed by the extra escaping", async (t) =>
+    {
+        for (const artist of ["Simon & Garfunkel", "Клава Кока", "Tyler, The Creator", "C# Major"])
+        {
+            const url = await requestedUrl(t, "artist.getsimilar", { artist });
+            assert.equal(firstDecode(url, "artist"), artist, `"${artist}" was changed`);
+        }
+    });
+
+    test("the extra escaping applies to every parameter, not only artist", async (t) =>
+    {
+        const url = await requestedUrl(t, "tag.gettopartists", { tag: "c++ & 100%" });
+        assert.equal(lastfmDecode(url, "tag"), "c++ & 100%");
+    });
+
+    test("method, api_key and format are sent as is", async (t) =>
+    {
+        const url = await requestedUrl(t, "artist.getsimilar", { artist: "a+b" });
+        assert.equal(firstDecode(url, "method"), "artist.getsimilar");
+        assert.equal(firstDecode(url, "api_key"), LASTFM_API_KEY);
+        assert.equal(firstDecode(url, "format"), "json");
+    });
 });
 
 

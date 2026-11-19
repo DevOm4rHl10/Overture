@@ -1,6 +1,6 @@
 # Name matching experiment
 
-Run: 2026-11-18T18:47:08.994Z · 51 tags · 100 artists per tag · 15 similar each
+Run: 2026-11-18T22:54:25.134Z · set "core" · 51 tags · 100 artists per tag · 15 similar each
 
 > **How to read this.** "Leaks (MBID)" only counts duplicates that MusicBrainz IDs can prove, so it is a
 > *lower bound*. When an artist has no MBID, a duplicate is invisible to it. The "Suspects" columns show how
@@ -24,7 +24,7 @@ Run: 2026-11-18T18:47:08.994Z · 51 tags · 100 artists per tag · 15 similar ea
 | Arabic | 400 | 2588 | 7.7% | **18.5** | 48 | 47 | 0 | 0 | 0 | – |
 | Thai | 200 | 1815 | 10.5% | **13.8** | 23 | 18 | 0 | 0 | 0 | – |
 | Korean | 200 | 1826 | 10.0% | **13.7** | 16 | 13 | 0 | 0 | 0 | – |
-| Armenian / Georgian | 200 | 2010 | 9.6% | **9.5** | 19 | 19 | 0 | 0 | 0 | – |
+| Armenian / Georgian | 200 | 2010 | 9.7% | **9.5** | 19 | 19 | 0 | 0 | 0 | – |
 | French | 300 | 2833 | 0.5% | **1.4** | 4 | 3 | 0 | 0 | 0 | – |
 | English | 600 | 6908 | 0.2% | **0.3** | 2 | 1 | 0 | 0 | 0 | – |
 | Persian | 200 | 1467 | 0.0% | **0.0** | 0 | 0 | 0 | 0 | 0 | – |
@@ -33,6 +33,32 @@ Run: 2026-11-18T18:47:08.994Z · 51 tags · 100 artists per tag · 15 similar ea
 | Spanish / Latin | 400 | 3136 | 0.1% | **0.0** | 0 | 0 | 0 | 0 | 0 | – |
 | Portuguese | 300 | 2198 | 0.1% | **0.0** | 0 | 0 | 0 | 0 | 0 | – |
 | Vietnamese | 200 | 1550 | 0.0% | **0.0** | 0 | 0 | 0 | 0 | 0 | – |
+
+## Artist metadata by language group (most popular first)
+
+> From `artist.getInfo` and `artist.getTopTags` for every seed. Full data in `artists.jsonl` (everything)
+> and `artists.csv` (spreadsheet). *Plays / listener* hints at how devoted the audience is.
+> Tag counts are relative (top tag = 100), like `match`.
+
+| Group | Artists | With info | With tags | With bio | Median listeners | Median plays / listener | Median tags | Most common tags |
+|---|---|---|---|---|---|---|---|---|
+| English | 500 | 100.0% | 99.8% | 100.0% | 2.5M | 36.1 | 10 | pop, indie, rock, alternative, hip-hop |
+| Korean | 132 | 100.0% | 100.0% | 100.0% | 524.9K | 57.7 | 10 | korean, k-pop, kpop, pop, female vocalists |
+| Spanish / Latin | 298 | 100.0% | 100.0% | 97.3% | 259.5K | 14.8 | 10 | latin, spanish, pop, reggaeton, latin pop |
+| Portuguese | 249 | 100.0% | 100.0% | 99.2% | 191K | 19.5 | 10 | brazilian, mpb, portuguese, brasil, portugal |
+| Japanese | 295 | 100.0% | 99.7% | 99.3% | 163.5K | 35.1 | 10 | japanese, j-pop, j-rock, anime, female vocalists |
+| French | 279 | 100.0% | 100.0% | 92.8% | 105.9K | 15.3 | 10 | french, chanson, french rap, rap, hip-hop |
+| Turkish | 154 | 100.0% | 100.0% | 89.6% | 54.5K | 16.3 | 10 | turkish, turkish pop, pop, female vocalists, turkey |
+| Russian / Cyrillic | 377 | 100.0% | 100.0% | 86.7% | 45.9K | 18.1 | 10 | russian, pop, hip-hop, rap, ukrainian |
+| Indian | 231 | 100.0% | 100.0% | 85.7% | 34.3K | 10.7 | 10 | indian, hindi, bollywood, india, punjabi |
+| Chinese | 314 | 100.0% | 100.0% | 85.0% | 13.6K | 20.3 | 10 | chinese, c-pop, pop, hong kong, mandopop |
+| Persian | 147 | 100.0% | 100.0% | 97.3% | 9K | 13.1 | 10 | persian, iranian, iran, pop, female vocalists |
+| Thai | 181 | 100.0% | 100.0% | 77.3% | 8.2K | 19.3 | 9 | thai, t-pop, pop, thailand, thai pop |
+| Hebrew | 135 | 100.0% | 100.0% | 94.1% | 7.8K | 17.1 | 10 | israeli, hebrew, israel, israeli rock, rock |
+| Vietnamese | 159 | 100.0% | 100.0% | 82.4% | 7.3K | 16.7 | 9 | vietnamese, v-pop, pop, vietnam, vpop |
+| Greek | 186 | 100.0% | 100.0% | 69.9% | 6.4K | 11.1 | 10 | greek, laiko, greece, pop, female vocalists |
+| Arabic | 369 | 100.0% | 100.0% | 66.1% | 5.4K | 8.5 | 9 | arabic, egyptian, rai, khaleeji, khaliji |
+| Armenian / Georgian | 198 | 100.0% | 100.0% | 84.3% | 4.9K | 9.9 | 10 | armenian, georgian, folk, armenia, pop |
 
 ## By tag
 
@@ -85,7 +111,7 @@ Run: 2026-11-18T18:47:08.994Z · 51 tags · 100 artists per tag · 15 similar ea
 | french | French | Latin 100 | 100 | 0 (0.0%) | 0 | 0 | 0 (0.0%) | 0.2% | 1 | 0 (0.0%) | seeds 92.0%, similar 92.2% |
 | chanson | French | Latin 82, Cyrillic 18 | 100 | 0 (0.0%) | 0 | 0 | 0 (0.0%) | 1.3% | 3 | 3 (100.0%) | seeds 92.0%, similar 91.5% |
 | french rap | French | Latin 98, Other 2 | 100 | 0 (0.0%) | 0 | 0 | 0 (0.0%) | 0.0% | 0 | 0 (–) | seeds 88.0%, similar 80.0% |
-| armenian | Armenian / Georgian | Latin 97, Armenian 3 | 100 | 0 (0.0%) | 1 | 0 | 0 (0.0%) | 5.7% | 8 | 8 (100.0%) | seeds 63.0%, similar 52.4% |
+| armenian | Armenian / Georgian | Latin 97, Armenian 3 | 100 | 0 (0.0%) | 1 | 0 | 0 (0.0%) | 5.8% | 8 | 8 (100.0%) | seeds 63.0%, similar 52.4% |
 | georgian | Armenian / Georgian | Latin 88, Georgian 7 | 100 | 0 (0.0%) | 0 | 0 | 0 (0.0%) | 13.3% | 11 | 11 (100.0%) | seeds 55.0%, similar 50.3% |
 | vietnamese | Vietnamese | Latin 100 | 100 | 0 (0.0%) | 0 | 0 | 0 (0.0%) | 0.0% | 0 | 0 (–) | seeds 81.0%, similar 73.3% |
 | v-pop | Vietnamese | Latin 100 | 100 | 0 (0.0%) | 0 | 0 | 0 (0.0%) | 0.0% | 0 | 0 (–) | seeds 72.0%, similar 60.1% |
@@ -105,11 +131,11 @@ Run: 2026-11-18T18:47:08.994Z · 51 tags · 100 artists per tag · 15 similar ea
 
 **What the MBID check cannot see**
 - MBID coverage: seeds 76.8%, candidates 71.4%
-- Candidates in another script than their seed: 4472 (10.3%), of which 2678 (59.9%) have no MBID on one side
+- Candidates in another script than their seed: 4473 (10.3%), of which 2679 (59.9%) have no MBID on one side
 - Cross-script suspects with match ≥ 0.8: 669 unique pairs; MBID check: 0 same, 203 different, **466 unknown**
 
 **Your hand review (verdict column in suspects.csv)**
 - Review-first sample: 96 pairs (10 per language group), labeled: 0
 - No verdicts yet. Fill the verdict column of the review_first rows with: same / different / related / unsure, then run again.
 
-Network calls this run: 3381
+Network calls this run: 8409

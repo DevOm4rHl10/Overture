@@ -19,18 +19,27 @@
 //                          is kept when you run the script again.
 //   6. MBID coverage       how often Last.fm gives a MusicBrainz ID at all,
 //                          and how many suspects the MBID check cannot verify
+//   7. Artist metadata     for every seed: artist.getInfo (listeners, playcount,
+//                          bio, MBID, URL, top 5 tags and similar) and
+//                          artist.getTopTags (full tag list with counts).
+//                          Saved as artists.jsonl / artists.csv, a dataset for
+//                          later work (obscurity factor, tag-based scoring).
+//                          Use --skip-metadata to leave it out.
 //
 // The simulation for (4): a fictional user knows every top artist of a tag,
 // so any similar artist that shares an MBID with a known artist, but whose
 // name doesn't match after normalizeArtist(), would be wrongly recommended.
 //
 // Run from the repo root:
-//   node experiments/name-matching.mjs                 (all tags, 100 per tag)
+//   node experiments/name-matching.mjs                 (core languages, 100 per tag)
+//   node experiments/name-matching.mjs --set world     (40 more language groups, writes to output-world/)
+//   node experiments/name-matching.mjs --set all       (both, writes to output-all/)
 //   node experiments/name-matching.mjs --per-tag 20    (quick run)
 //   node experiments/name-matching.mjs --tags russian,arabic --per-tag 50
 //
-// Every Last.fm response is cached in experiments/output/cache.json, so a run
-// can be stopped (Ctrl+C) and resumed, and re-running the analysis is instant.
+// Every Last.fm response is cached in experiments/output/cache.json (shared by
+// all sets), so a run can be stopped (Ctrl+C) and resumed, and re-running the
+// analysis is instant.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import fs from "node:fs/promises";
@@ -45,8 +54,10 @@ import { normalizeArtist } from "../extension/shared/normalize.js";
 // ── Settings ────────────────────────────────────────────────────────────────
 
 // Last.fm tags, grouped by the language/script they mostly cover.
-// Tags are user-made on Last.fm: a few may return fewer artists than asked.
-const TAG_GROUPS = {
+// Tags are user-made on Last.fm: a few may return fewer artists than asked,
+// or nothing at all. Last.fm's users skew toward Europe and the Americas,
+// so small tags are a finding in themselves (less data for those listeners).
+const CORE_GROUPS = {
     "English":            ["pop", "rock", "hip-hop", "indie", "british", "american"],
     "Russian / Cyrillic":["russian", "ukrainian", "russian pop", "russian rap"],
     "Chinese":            ["chinese", "mandopop", "cantopop", "c-pop"],
@@ -66,6 +77,59 @@ const TAG_GROUPS = {
     "Vietnamese":         ["vietnamese", "v-pop"],
 };
 
+const WORLD_GROUPS = {
+    // Europe
+    "Albanian":                     ["albanian", "shqip"],
+    "Serbian / Croatian / Bosnian": ["serbian", "croatian", "bosnian", "yugoslav", "turbo folk"],  // Serbian: Cyrillic AND Latin
+    "Bulgarian / Macedonian":       ["bulgarian", "macedonian", "chalga"],
+    "Romanian":                     ["romanian", "manele"],
+    "Hungarian":                    ["hungarian"],
+    "Polish":                       ["polish", "polish rap"],
+    "Czech / Slovak":               ["czech", "slovak"],
+    "Baltic":                       ["lithuanian", "latvian", "estonian"],
+    "Finnish":                      ["finnish", "suomi"],
+    "Swedish":                      ["swedish"],
+    "Norwegian":                    ["norwegian"],
+    "Danish":                       ["danish"],
+    "Icelandic":                    ["icelandic"],
+    "German":                       ["german", "deutschrap", "schlager"],
+    "Dutch / Flemish":              ["dutch", "nederlandstalig"],
+    "Italian":                      ["italian", "italian pop", "cantautori"],
+    "Celtic":                       ["irish", "welsh", "scottish"],
+    "Basque / Catalan / Galician":  ["basque", "catalan", "galician"],
+    "Yiddish / Ladino":             ["yiddish", "klezmer", "ladino"],
+    // Central, South and Southeast Asia
+    "Kazakh / Uzbek / Kyrgyz":      ["kazakh", "uzbek", "kyrgyz"],  // Kazakh is moving from Cyrillic to Latin
+    "Azerbaijani":                  ["azerbaijani"],
+    "Kurdish":                      ["kurdish"],
+    "Urdu / Pakistani":             ["pakistani", "urdu", "qawwali"],
+    "Bengali":                      ["bengali", "bangla"],
+    "Tamil / Telugu / Malayalam":   ["tamil", "telugu", "malayalam", "kollywood", "tollywood"],
+    "Marathi / Gujarati / Nepali":  ["marathi", "gujarati", "nepali"],
+    "Sinhala":                      ["sinhala", "sri lankan"],
+    "Indonesian / Malay":           ["indonesian", "malaysian", "dangdut"],
+    "Filipino":                     ["filipino", "opm", "tagalog"],
+    "Khmer / Lao / Burmese":        ["cambodian", "khmer", "lao", "burmese"],
+    "Mongolian / Tibetan":          ["mongolian", "tibetan"],
+    // Africa
+    "Swahili / East African":       ["swahili", "bongo flava", "kenyan", "tanzanian"],
+    "Ethiopian / Somali":           ["ethiopian", "amharic", "somali"],
+    "West African":                 ["afrobeats", "nigerian", "ghanaian", "highlife", "senegalese", "malian"],
+    "Central African":              ["congolese", "soukous", "cameroonian"],
+    "Southern African":             ["south african", "afrikaans", "amapiano", "zulu"],
+    "Malagasy":                     ["malagasy"],
+    "Amazigh / Berber":             ["berber", "amazigh", "kabyle"],
+    // Americas and Pacific
+    "Haitian / Caribbean":          ["haitian", "kompa", "zouk", "dancehall"],
+    "Pacific / Indigenous":         ["hawaiian", "maori", "polynesian"],
+};
+
+const SETS = {
+    core:  CORE_GROUPS,
+    world: WORLD_GROUPS,
+    all:   { ...CORE_GROUPS, ...WORLD_GROUPS },
+};
+
 const { values: args } = parseArgs({
     options: {
         "per-tag":      { type: "string", default: "100" },  // top artists per tag
@@ -74,8 +138,13 @@ const { values: args } = parseArgs({
         "delay":        { type: "string", default: "250" },  // ms between network calls (be nice to Last.fm)
         "suspect-match":{ type: "string", default: "0.8" },  // min match for cross-script suspects
         "review":       { type: "string", default: "10" },   // suspects per language group marked "review first"
+        "set":          { type: "string", default: "core" }, // core | world | all
+        "skip-metadata":{ type: "boolean", default: false }, // don't fetch artist.getInfo + artist.getTopTags
     },
 });
+const FETCH_METADATA = !args["skip-metadata"];
+if (!(args.set in SETS)) { console.error(`Unknown --set "${args.set}". Use: ${Object.keys(SETS).join(", ")}`); process.exit(1); }
+const TAG_GROUPS = SETS[args.set];
 const REVIEW_PER_GROUP = Number(args["review"]);
 
 const PER_TAG = Number(args["per-tag"]);
@@ -84,13 +153,16 @@ const DELAY_MS = Number(args["delay"]);
 const SUSPECT_MATCH = Number(args["suspect-match"]);
 
 const ALL_TAGS = Object.entries(TAG_GROUPS).flatMap(([group, tags]) => tags.map((tag) => ({ tag, group })));
+const KNOWN_TAGS = Object.entries(SETS.all).flatMap(([group, tags]) => tags.map((tag) => ({ tag, group })));
 const TAGS = args.tags
-    ? args.tags.split(",").map((t) => t.trim()).filter(Boolean).map((tag) => ALL_TAGS.find((x) => x.tag === tag) ?? { tag, group: "Custom" })
+    ? args.tags.split(",").map((t) => t.trim()).filter(Boolean).map((tag) => KNOWN_TAGS.find((x) => x.tag === tag) ?? { tag, group: "Custom" })
     : ALL_TAGS;
 
+// Each set writes its own report (output/, output-world/, output-all/), so runs
+// don't overwrite each other or your verdicts. The cache is shared by all sets.
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = path.join(HERE, "output");
-const CACHE_FILE = path.join(OUT_DIR, "cache.json");
+const OUT_DIR = path.join(HERE, args.set === "core" ? "output" : `output-${args.set}`);
+const CACHE_FILE = path.join(HERE, "output", "cache.json");
 
 
 // ── Cached, throttled, retrying Last.fm calls ──────────────────────────────
@@ -107,7 +179,7 @@ async function loadCache()
 
 async function saveCache()
 {
-    await fs.mkdir(OUT_DIR, { recursive: true });
+    await fs.mkdir(path.dirname(CACHE_FILE), { recursive: true });
     await fs.writeFile(CACHE_FILE, JSON.stringify(cache));
     unsavedCalls = 0;
 }
@@ -148,7 +220,7 @@ async function cachedGet(method, params)
 
     // Only cache answers that will not change: successes and "not found"
     if (result.body || result.error.code === 6) cache[key] = result;
-    if (++unsavedCalls >= 25) await saveCache();
+    if (++unsavedCalls >= 200) await saveCache();   // the cache gets large with bios: save every 200 calls
     return result;
 }
 
@@ -162,7 +234,9 @@ const cleanMbid = (mbid) => (typeof mbid === "string" && mbid.trim() !== "" ? mb
 
 // Dominant writing system of a name, from Unicode script properties
 const SCRIPTS = ["Latin", "Cyrillic", "Greek", "Arabic", "Hebrew", "Han", "Hiragana", "Katakana",
-    "Hangul", "Thai", "Devanagari", "Gurmukhi", "Armenian", "Georgian"];
+    "Hangul", "Thai", "Devanagari", "Gurmukhi", "Armenian", "Georgian",
+    "Bengali", "Tamil", "Telugu", "Malayalam", "Kannada", "Gujarati", "Oriya", "Sinhala",
+    "Khmer", "Lao", "Myanmar", "Tibetan", "Mongolian", "Ethiopic", "Tifinagh", "Syriac", "Thaana"];
 const SCRIPT_RE = Object.fromEntries(SCRIPTS.map((s) => [s, new RegExp(`\\p{Script=${s}}`, "gu")]));
 
 function scriptOf(name)
@@ -267,9 +341,60 @@ async function similarFor(seedName)
         resolvedAs: block["@attr"]?.artist ?? seedName,
         similar: toArray(block.artist)
             .filter((s) => typeof s?.name === "string")
-            .map((s) => ({ name: s.name, match: Number(s.match), mbid: cleanMbid(s.mbid) })),
+            .map((s) => ({ name: s.name, match: Number(s.match), mbid: cleanMbid(s.mbid), url: s.url ?? null })),
     };
 }
+
+// Numbers come back as strings ("41200"): convert, or null if missing/invalid
+const toNumber = (x) => { const n = Number(x); return x === undefined || x === null || x === "" || !Number.isFinite(n) ? null : n; };
+
+// Bios contain HTML ("<a href=…>Read more on Last.fm</a>"): keep plain text
+const plainText = (html) => (typeof html === "string"
+    ? html.replace(/<a [^>]*>Read more on Last\.fm<\/a>\.?/gi, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim() || null
+    : null);
+
+// Everything Last.fm knows about one artist: artist.getInfo + artist.getTopTags
+async function metadataFor(name)
+{
+    const [infoRes, tagsRes] = [
+        await cachedGet("artist.getinfo", { artist: name, autocorrect: 1 }),
+        await cachedGet("artist.gettoptags", { artist: name, autocorrect: 1 }),
+    ];
+    const a = infoRes.body?.artist;
+    return {
+        infoError: infoRes.error ?? null,
+        tagsError: tagsRes.error ?? null,
+        info: a ? {
+            canonicalName: a.name ?? null,
+            mbid: cleanMbid(a.mbid),
+            url: a.url ?? null,
+            listeners: toNumber(a.stats?.listeners),
+            playcount: toNumber(a.stats?.playcount),
+            playsPerListener: toNumber(a.stats?.listeners) ? toNumber(a.stats?.playcount) / toNumber(a.stats?.listeners) : null,
+            onTour: a.ontour === "1" || a.ontour === 1,
+            infoTags: toArray(a.tags?.tag).map((t) => t?.name).filter(Boolean),          // top 5, no counts
+            infoSimilar: toArray(a.similar?.artist).map((s) => s?.name).filter(Boolean),   // top 5 shown on the page
+            bioPublished: a.bio?.published ?? null,
+            bioSummary: plainText(a.bio?.summary),
+            bioContent: plainText(a.bio?.content),
+            links: toArray(a.bio?.links?.link).map((l) => l?.href).filter(Boolean),
+        } : null,
+        // Full tag list with counts (relative: top tag = 100)
+        topTags: toArray(tagsRes.body?.toptags?.tag)
+            .filter((t) => typeof t?.name === "string")
+            .map((t) => ({ name: t.name, count: toNumber(t.count) })),
+    };
+}
+
+const median = (values) =>
+{
+    const v = values.filter((x) => typeof x === "number").sort((a, b) => a - b);
+    if (v.length === 0) return null;
+    const mid = Math.floor(v.length / 2);
+    return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+};
+
+const compact = (n) => (n === null ? "–" : Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n));
 
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -279,8 +404,8 @@ async function main()
     await loadCache();
     process.on("SIGINT", async () => { console.log("\nStopped, saving cache…"); await saveCache(); process.exit(130); });
 
-    const maxCalls = TAGS.length * (PER_TAG + 1);
-    console.log(`${TAGS.length} tags × ${PER_TAG} artists, ${SIMILAR_LIMIT} similar each.`);
+    const maxCalls = TAGS.length * (PER_TAG * (FETCH_METADATA ? 3 : 1) + 1);
+    console.log(`Set "${args.set}": ${TAGS.length} tags × ${PER_TAG} artists, ${SIMILAR_LIMIT} similar each${FETCH_METADATA ? ", with full metadata" : ""}.`);
     console.log(`Up to ${maxCalls} Last.fm calls (cached ones are free). First run: roughly ${Math.ceil((maxCalls * (DELAY_MS + 300)) / 60000)} min.\n`);
 
     const SUSPECTS_FILE = path.join(OUT_DIR, "suspects.csv");
@@ -292,6 +417,7 @@ async function main()
     const leaks = [];           // confirmed known-artist leaks (via MBID)
     const selfDupes = [];       // seed found in its own similar list under another name
     const mbidNames = new Map(); // mbid → Map(normalized name → display name)
+    const artists = new Map();   // normalized seed name → full record (the dataset), deduplicated across tags
 
     const rememberMbid = (mbid, name) =>
     {
@@ -324,6 +450,28 @@ async function main()
             rememberMbid(seed.mbid, seed.name);
 
             const result = await similarFor(seed.name);
+
+            // The dataset: one record per artist, with every tag it was found under
+            const seedKey = normalizeArtist(seed.name);
+            let record = artists.get(seedKey);
+            if (record)
+            {
+                if (!record.foundUnder.includes(tag)) record.foundUnder.push(tag);
+                if (!record.groups.includes(group)) record.groups.push(group);
+            }
+            else
+            {
+                record = {
+                    name: seed.name, script: scriptOf(seed.name), groups: [group], foundUnder: [tag],
+                    tagChartMbid: seed.mbid,
+                    similarError: result.error ?? null,
+                    similarResolvedAs: result.error ? null : result.resolvedAs,
+                    similar: result.error ? [] : result.similar,
+                    ...(FETCH_METADATA ? await metadataFor(seed.name) : {}),
+                };
+                artists.set(seedKey, record);
+            }
+
             if (result.error)
             {
                 if (result.error.code === 6) stats.notFound++;
@@ -398,6 +546,49 @@ async function main()
 
     // ── Write results ──
     await fs.mkdir(OUT_DIR, { recursive: true });
+    // ── The artist dataset ──
+    // artists.jsonl: one JSON object per line, everything collected (for code: analysis, tag scoring later)
+    // artists.csv:   the main columns, for a spreadsheet
+    const artistList = [...artists.values()];
+    await fs.mkdir(OUT_DIR, { recursive: true });
+    await fs.writeFile(path.join(OUT_DIR, "artists.jsonl"), artistList.map((a) => JSON.stringify(a)).join("\n") + "\n");
+    await fs.writeFile(path.join(OUT_DIR, "artists.csv"), csv([
+        ["name", "canonical_name", "script", "groups", "found_under", "mbid", "listeners", "playcount", "plays_per_listener",
+            "on_tour", "bio_published", "top_tags", "similar_top5", "similar_error", "url", "bio_summary"],
+        ...artistList.map((a) => [
+            a.name, a.info?.canonicalName, a.script, a.groups.join(" | "), a.foundUnder.join(" | "),
+            a.info?.mbid ?? a.tagChartMbid, a.info?.listeners, a.info?.playcount,
+            typeof a.info?.playsPerListener === "number" ? a.info.playsPerListener.toFixed(1) : "",
+            a.info ? (a.info.onTour ? "yes" : "no") : "", a.info?.bioPublished,
+            (a.topTags ?? []).slice(0, 10).map((t) => `${t.name}:${t.count}`).join(" | "),
+            a.similar.slice(0, 5).map((s) => s.name).join(" | "),
+            a.similarError ? `${a.similarError.code} ${a.similarError.message}` : "",
+            a.info?.url, a.info?.bioSummary,
+        ]),
+    ]));
+
+    // Per language group: popularity and how well tagged the artists are
+    const metaGroups = [...new Set(perTag.map((s) => s.group))].map((group) =>
+    {
+        const list = artistList.filter((a) => a.groups[0] === group);
+        const withInfo = list.filter((a) => a.info);
+        const tagCounts = new Map();
+        for (const a of list) for (const t of (a.topTags ?? []).slice(0, 5))
+        {
+            const name = t.name.toLowerCase();
+            tagCounts.set(name, (tagCounts.get(name) ?? 0) + 1);
+        }
+        return {
+            group, artists: list.length, withInfo: withInfo.length,
+            withTags: list.filter((a) => (a.topTags ?? []).length > 0).length,
+            withBio: withInfo.filter((a) => a.info.bioSummary).length,
+            medianListeners: median(withInfo.map((a) => a.info.listeners)),
+            medianPlaysPerListener: median(withInfo.map((a) => a.info.playsPerListener)),
+            medianTags: median(list.map((a) => (a.topTags ?? []).length)),
+            topTags: [...tagCounts.entries()].sort((x, y) => y[1] - x[1]).slice(0, 5).map(([t]) => t).join(", "),
+        };
+    }).sort((x, y) => (y.medianListeners ?? 0) - (x.medianListeners ?? 0));
+
     // Mark a small random sample per language group as "review first":
     // labeling ~10 per group is enough to estimate how many suspects are real duplicates
     const suspectList = [...suspects.values()];
@@ -454,7 +645,7 @@ async function main()
     const lines = [
         "# Name matching experiment",
         "",
-        `Run: ${new Date().toISOString()} · ${TAGS.length} tags · ${PER_TAG} artists per tag · ${SIMILAR_LIMIT} similar each`,
+        `Run: ${new Date().toISOString()} · set "${args.set}" · ${TAGS.length} tags · ${PER_TAG} artists per tag · ${SIMILAR_LIMIT} similar each`,
         "",
         "> **How to read this.** \"Leaks (MBID)\" only counts duplicates that MusicBrainz IDs can prove, so it is a",
         "> *lower bound*. When an artist has no MBID, a duplicate is invisible to it. The \"Suspects\" columns show how",
@@ -472,6 +663,18 @@ async function main()
         "|---|---|---|---|---|---|---|---|---|---|---|",
         ...groups.map((g) => `| ${g.group} | ${g.seeds} | ${g.candidates} | ${pct(g.crossScript, g.candidates)} | **${g.rate.toFixed(1)}** | ${g.uniquePairs} | ${g.noMbid} | ${g.labeledHere} | ${g.same} | ${g.different} | ${g.estimated === null ? "–" : `**${g.estimated.toFixed(1)}**`} |`),
         "",
+        ...(FETCH_METADATA ? [
+            "## Artist metadata by language group (most popular first)",
+            "",
+            "> From `artist.getInfo` and `artist.getTopTags` for every seed. Full data in `artists.jsonl` (everything)",
+            "> and `artists.csv` (spreadsheet). *Plays / listener* hints at how devoted the audience is.",
+            "> Tag counts are relative (top tag = 100), like `match`.",
+            "",
+            "| Group | Artists | With info | With tags | With bio | Median listeners | Median plays / listener | Median tags | Most common tags |",
+            "|---|---|---|---|---|---|---|---|---|",
+            ...metaGroups.map((g) => `| ${g.group} | ${g.artists} | ${pct(g.withInfo, g.artists)} | ${pct(g.withTags, g.artists)} | ${pct(g.withBio, g.artists)} | ${compact(g.medianListeners)} | ${g.medianPlaysPerListener === null ? "–" : g.medianPlaysPerListener.toFixed(1)} | ${g.medianTags ?? "–"} | ${g.topTags} |`),
+            "",
+        ] : []),
         "## By tag",
         "",
         `| Tag | Group | Main scripts | Seeds | Not found (6) | Autocorrected | Seed in own list | Leaks (MBID, lower bound) | Cross-script | Suspects (≥ ${SUSPECT_MATCH}) | …of which no MBID | MBID coverage |`,

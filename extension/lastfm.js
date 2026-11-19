@@ -47,7 +47,12 @@ export function buildUrl(method, params)
     for (let [key, value] of container)
     {
         if (value == null) continue;
-        parsedParams.append(key, value);
+
+        const safeValue = String(value)
+            .replace(/%/g, "%25")
+            .replace(/\+/g, "%2B");
+
+        parsedParams.append(key, safeValue);
     }
 
     parsedParams.set("method", method);
