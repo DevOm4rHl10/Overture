@@ -1,6 +1,8 @@
 import { login, logout, getAccessToken } from "./auth.js";
 import { spotifyGet } from "./spotify.js";
 import { loadArtists as loadSpotify} from "./sources/spotify.js";
+import { buildSimilarityGraph } from "./similarity.js";
+
 const handlers = {
   async STATUS() {
     if (!(await getAccessToken())) return { loggedIn: false };
@@ -19,6 +21,12 @@ const handlers = {
   async TEST_SOURCE(){
     const artists = await loadSpotify();
     return {artists : artists};
+  },
+
+  async TEST_GRAPH(){
+    const artists = await loadSpotify(); 
+    const graph = await buildSimilarityGraph(artists);
+    return graph;
   },
 
 };
