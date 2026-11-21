@@ -18,7 +18,8 @@
 //      are compared. The keys are never displayed or stored.
 //        - Cyrillic, Greek, Armenian, Georgian → looseKey(): letter-by-letter
 //          transliteration, then a few "folding" rules that erase the usual
-//          spelling variants (kh/h, y/i/j, ts/c, double letters…).
+//          spelling variants (kh/h, y/i/j, ts/c, yu/u after a consonant,
+//          double letters…).
 //        - Arabic script (incl. Persian letters) → skeletonKey(): consonants
 //          only, because Arabic doesn't write short vowels
 //          (محمد = Mohammad = Muhammad = Mohamed = "mhmd").
@@ -193,6 +194,11 @@ export function looseKey(name)
         ["w", "v"],                       // в: w (German style) / v
         ["y", "i"], ["j", "i"],           // й, ы, ј: y / i / j
     ]);
+
+    // ю after a consonant: lyu / liu / lu (Люся = Lyusya = Lusia). Runs after
+    // y → i, so "lyu" is already "liu" here. Word-initial ю (Юлия) is untouched.
+    text = text.replace(/([b-df-hk-np-tv-z])iu/g, "$1u");
+
     text = text.replace(/ /g, "");
     return text.replace(/(.)\1+/g, "$1");                   // double letters: Anna → Ana
 }

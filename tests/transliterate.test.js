@@ -31,6 +31,8 @@ describe("Same artist, two scripts", () =>
             ["Виктор Цой", "Viktor Tsoi"],                // ц → ts → c
             ["Михаил Круг", "Mikhail Krug"],              // х → kh → h
             ["Юлианна Караулова", "Yulianna Karaulova"],  // ю → yu, double letters
+            ["Люся Чеботина", "Lusia Chebotina"],         // ю after a consonant: yu → u (real Spotify ↔ Last.fm pair)
+            ["Люся Чеботина", "Lyusya Chebotina"],        // the full transliteration still matches
             ["Татьяна Куртукова", "Tatyana Kurtukova"],   // ь disappears
             ["Ирина Дубцова", "Irina Dubtsova"],
             ["Маша и медведи", "masha i medvedi"],
