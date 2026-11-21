@@ -232,6 +232,13 @@ export function sortByScore(candidates) {
     return ranked;
 }
 
+// "47 Soul" and "47Soul", "S. Janaki" and "S.Janaki": the same artist written
+// with different spacing. Used only to remove known artists: a mistake there
+// hides one artist (Laylow when Lay Low is known), never merges two.
+function withoutSpaces(name) {
+    return normalizeArtist(name).replace(/\s+/g, "");
+}
+
 export function removeKnown(candidates, knownArtists) {
 
     if (!Array.isArray(candidates)) {
@@ -239,6 +246,7 @@ export function removeKnown(candidates, knownArtists) {
     }
 
     const knownNames = getKnownArtistNames(knownArtists);
+    const knownKeys = new Set(knownNames.map(withoutSpaces));
     const filtered = [];
 
     for (const candidate of candidates) {
@@ -252,9 +260,9 @@ export function removeKnown(candidates, knownArtists) {
             continue;
         }
 
-        const isKnown = knownNames.some(knownName =>
-            isSameArtist(candidate.name, knownName)
-        );
+        const isKnown =
+        knownKeys.has(withoutSpaces(candidate.name)) ||
+        knownNames.some(knownName => isSameArtist(candidate.name, knownName));
 
         if (!isKnown) {
             filtered.push(candidate);

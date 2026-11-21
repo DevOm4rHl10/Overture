@@ -396,8 +396,39 @@ describe("removeKnown", () => {
         assert.deepEqual(input, before);
     });
 
+    test("spacing doesn't matter: 47 Soul is removed when 47Soul is known, and the reverse", () => {
+        assert.deepEqual(names(removeKnown([cand("47 Soul", [["A", 1]])], known("47Soul"))), []);
+        assert.deepEqual(names(removeKnown([cand("47Soul", [["A", 1]])], known("47 Soul"))), []);
+    });
+
+    test("spacing: initials and joined words (found on real data)", () => {
+        const input = [cand("S. Janaki", [["A", 1]]), cand("K.J.Yesudas", [["A", 1]]),
+            cand("Sidhu Moosewala", [["A", 1]]), cand("Bonez MC", [["A", 1]])];
+        const result = removeKnown(input, known("S.Janaki", "K. J. Yesudas", "Sidhu Moose Wala", "BonezMC"));
+        assert.deepEqual(names(result), []);
+    });
+
+    test("spacing: case still doesn't matter, and other whitespace (tab, no-break space) counts as space", () => {
+        const result = removeKnown([cand("47\u00A0SOUL", [["A", 1]]), cand("Ali\tKiba", [["A", 1]])], known("47soul", "Alikiba"));
+        assert.deepEqual(names(result), []);
+    });
+
+    test("spacing: Arabic names with and without the space in عبد", () => {
+        const result = removeKnown([cand("عبد الله الرويشد", [["A", 1]])], known("عبدالله الرويشد"));
+        assert.deepEqual(names(result), []);
+    });
+
+    test("spacing only: punctuation and letters still have to match", () => {
+        const input = [cand("47 Souls", [["A", 1]]), cand("47-Soul", [["A", 1]])];
+        assert.deepEqual(names(removeKnown(input, known("47Soul"))), ["47 Souls", "47-Soul"]);
+    });
+
     // Documented limits: current, decided behavior. If Layer 2 changes, update these.
     describe("known limits (decided)", () => {
+        test("spacing match can hide a different artist: Laylow is removed when Lay Low is known", () => {
+            assert.deepEqual(names(removeKnown([cand("Laylow", [["A", 1]])], known("Lay Low"))), []);
+        });
+
 
         test("one-word names in two scripts are never matched: Кино stays when Kino is known", () => {
             assert.deepEqual(names(removeKnown([cand("Кино", [["A", 1]])], known("Kino"))), ["Кино"]);
@@ -557,6 +588,11 @@ describe("mergeDuplicates", () => {
 
     test("different artists are not merged", () => {
         const input = [cand("Zivert", [["A", 1]]), cand("Jakone", [["A", 1]]), cand("Beyonce", [["A", 1]]), cand("Beyoncé", [["A", 1]])];
+        assert.equal(mergeDuplicates(input).length, 4);
+    });
+
+    test("spacing is NOT ignored here (decided: only removeKnown ignores it)", () => {
+        const input = [cand("Laylow", [["A", 1]]), cand("Lay Low", [["A", 1]]), cand("47Soul", [["B", 1]]), cand("47 Soul", [["B", 1]])];
         assert.equal(mergeDuplicates(input).length, 4);
     });
 

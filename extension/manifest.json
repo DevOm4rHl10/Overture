@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "description": "Discover artists you haven't heard, based on what you love.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAl/5xUaex5EXOjameS2ou+6Z61d8bm3SS56P9S4zg0MzlTV7JhzthBrO1d2mVk4gSADkST31NVOzwebb6+EWFyZIWnIEtM7UBb7DjzK1gocXGbLILNfS45Ebv6zyLp2cZEc6oh9rjgTmvPARoKdmR3Upp7JAPF56gcjkdnbL3KbZ0TPOoybyVkz/C3/ALMmuJmML/sSCK/6YZzzKZ9L2dnW4+lbkjRaQYMSvNW+v2pJ095ZlRDqoejSoLDLoGNchXI3kNX2QjYcRAPzakNUx2DAazY566Db68xGA14SQ/dOCdUJ6FKIFQczB4p6KM98JZ/LMyLwM6mU3QzJjlt9CTFwIDAQAB",
-  "permissions": ["identity", "storage"],
+  "permissions": [
+    "identity",
+    "storage"
+  ],
   "host_permissions": [
     "https://accounts.spotify.com/*",
     "https://api.spotify.com/*",
@@ -16,6 +19,16 @@
   },
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "Overture"
+    "default_title": "Overture",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   }
 }

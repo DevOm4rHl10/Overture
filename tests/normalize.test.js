@@ -1,5 +1,5 @@
 // Tests for shared/normalize.js and sources/seeds.js
-// Run from the repo root: node --test tests/
+// Run from the repo root: node --test
 //
 // Groups:
 //   1. Core behavior          - what must always work

@@ -2,7 +2,6 @@
 import { spotifyGet } from "../spotify.js";
 import { normalizeArtistList } from "../shared/normalize.js";
 
-
 const VALID_TIME_RANGES = ["short_term", "medium_term", "long_term"];
 
 

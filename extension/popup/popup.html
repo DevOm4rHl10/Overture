@@ -1,14 +1,123 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
+  <title>Overture</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <h1>Overture</h1>
-  <button id="connect" hidden>Connect Spotify</button>
-  <button id="disconnect" hidden>Disconnect</button>
-  <p id="status">Loading…</p>
-  <script src="popup.js"></script>
+  <header class="stage" id="stage">
+    <div class="stage__sky" aria-hidden="true">
+      <span class="cloud cloud--a" id="cloud-a"></span>
+      <span class="cloud cloud--b" id="cloud-b"></span>
+      <span class="sun" id="sun"></span>
+      <span class="grass" id="grass"></span>
+    </div>
+    <div class="stage__composer" id="composer"></div>
+    <div class="stage__notes" id="notes" aria-hidden="true"></div>
+    <div class="stage__title">
+      <h1 id="title"></h1>
+      <p class="tagline">New artists, picked from the ones you love.</p>
+    </div>
+  </header>
+
+  <main>
+    <!-- 0. First-run tutorial (and "How it works") -->
+    <section id="view-tutorial" class="view tutorial" hidden>
+      <p class="tutorial__step" id="tut-step"></p>
+      <h2 id="tut-title" tabindex="-1"></h2>
+      <p class="tutorial__body" id="tut-body"></p>
+      <div class="tutorial__dots" id="tut-dots" aria-hidden="true"></div>
+      <div class="tutorial__nav">
+        <button type="button" class="btn btn--small btn--skip" id="tut-skip">Skip tutorial</button>
+        <span class="tutorial__buttons">
+          <button type="button" class="btn btn--small" id="tut-back">Back</button>
+          <button type="button" class="btn btn--small btn--next" id="tut-next">Next</button>
+        </span>
+      </div>
+    </section>
+
+    <!-- 1. Choose your music and a mode -->
+    <section id="view-setup" class="view">
+      <fieldset class="field">
+        <legend>Your music</legend>
+        <div class="tabs" role="tablist" aria-label="Your music">
+          <button type="button" class="tab" role="tab" id="tab-typed" aria-controls="panel-typed" aria-selected="true">Type artists</button>
+          <button type="button" class="tab" role="tab" id="tab-spotify" aria-controls="panel-spotify" aria-selected="false">Spotify</button>
+        </div>
+
+        <div class="panel" role="tabpanel" id="panel-spotify" aria-labelledby="tab-spotify" hidden>
+          <div class="locked" id="spotify-locked">
+            <p class="status">Spotify is invite-only for now.</p>
+            <p class="help">Spotify lets apps in testing connect only 5 accounts, and each one is added by hand. If you know me and want to try it, ask me to add your Spotify account.</p>
+            <div class="locked__actions">
+              <button type="button" class="btn btn--small" id="use-typed">Type artists instead</button>
+              <button type="button" class="link" id="invited">I've been added</button>
+            </div>
+          </div>
+          <div class="spotify-open" id="spotify-open" hidden>
+          <p class="status" id="spotify-status">Checking Spotify…</p>
+          <button type="button" class="btn btn--ghost" id="connect" hidden>Connect Spotify</button>
+          <button type="button" class="link" id="disconnect" hidden>Disconnect</button>
+          <div class="history" id="history">
+            <p class="sublabel" id="history-label">How far back?</p>
+            <div class="modes modes--compact" id="ranges" role="radiogroup" aria-labelledby="history-label"></div>
+            <p class="help" id="range-hint"></p>
+          </div>
+          </div>
+        </div>
+
+        <div class="panel" role="tabpanel" id="panel-typed" aria-labelledby="tab-typed">
+          <form class="add" id="add-form">
+            <label class="sr-only" for="artist-input">Artist name</label>
+            <input id="artist-input" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="Add an artist, then press Enter" maxlength="120">
+            <button type="submit" class="btn btn--small">Add</button>
+          </form>
+          <ul class="chips" id="chips" aria-label="Artists you added"></ul>
+          <p class="help" id="typed-help">Add a few artists you love, in any language.</p>
+        </div>
+      </fieldset>
+
+      <fieldset class="field">
+        <legend>How adventurous?</legend>
+        <div class="modes" id="modes-setup" role="radiogroup" aria-label="How adventurous?"></div>
+        <p class="help" id="mode-hint"></p>
+      </fieldset>
+
+      <button type="button" class="btn btn--go" id="go">Find new artists</button>
+      <p class="error" id="setup-error" role="alert" hidden></p>
+      <button type="button" class="btn btn--small btn--help" id="help">Tutorial</button>
+    </section>
+
+    <!-- 2. The dance while the pipeline runs -->
+    <section id="view-loading" class="view loading" hidden>
+      <div class="loading__dancer">
+        <div id="dancer"></div>
+        <span class="grass grass--patch" id="grass-patch"></span>
+      </div>
+      <p class="loading__phrase" id="phrase" aria-live="polite"></p>
+      <p class="help">The first search of the day takes about 15 seconds.</p>
+    </section>
+
+    <!-- 3. Results -->
+    <section id="view-results" class="view" hidden>
+      <div class="results__head">
+        <h2 id="results-title" tabindex="-1"></h2>
+        <button type="button" class="link" id="back">Change my artists</button>
+      </div>
+      <div class="modes modes--compact" id="modes-results" role="radiogroup" aria-label="How adventurous?"></div>
+      <ul class="results" id="results"></ul>
+      <button type="button" class="btn btn--ghost" id="more" hidden>Show me others</button>
+      <p class="more-done" id="more-done" hidden>That's everyone for these artists. <button type="button" class="link" id="restart">Start over</button></p>
+      <p class="empty" id="empty" hidden></p>
+      <p class="skipped" id="skipped" hidden></p>
+      <p class="error" id="results-error" role="alert" hidden></p>
+      <button type="button" class="btn btn--small btn--help" id="help-results">Tutorial</button>
+      <p class="credit">Similar artists and listener counts from <a href="https://www.last.fm" target="_blank" rel="noopener">Last.fm</a>. Names open a Spotify search.</p>
+    </section>
+  </main>
+
+  <script type="module" src="popup.js"></script>
 </body>
 </html>

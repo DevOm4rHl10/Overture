@@ -5,8 +5,11 @@ import { loadArtists as loadSpotify } from "./sources/spotify.js";
 import { buildSimilarityGraph } from "./similarity.js";
 import { buildPool, rankPool } from "./ranking.js";
 import { getListenerCounts } from "./artistInfo.js";
+import { loadArtists as loadSeeds } from "./sources/seeds.js";
+
 
 const handlers = {
+  
     async STATUS() {
         if (!(await getAccessToken())) return { loggedIn: false };
         const me = await spotifyGet("/me");
@@ -23,48 +26,31 @@ const handlers = {
         return { loggedIn: false };
     },
 
-    async TEST_SOURCE() {
-        const artists = await loadSpotify();
-        return { artists };
-    },
+    async GET_RECOMMENDATIONS(message) {
+    const sourceArtists = message.source === "typed"
+        ? await loadSeeds(message.artists)
+        : await loadSpotify({ timeRange: message.timeRange });
 
-    async TEST_GRAPH() {
-        const artists = await loadSpotify();
-        const result = await buildSimilarityGraph(artists);
-        return result;
-    },
+    const { graph, skipped } = await buildSimilarityGraph(sourceArtists);
 
-    async TEST_POOL() {
-        const sourceArtists = await loadSpotify();
-        const { graph } = await buildSimilarityGraph(sourceArtists);
+    
+    const pool = buildPool(graph, sourceArtists);
+    
 
-        console.time("buildPool");
-        const pool = buildPool(graph, sourceArtists);
-        console.timeEnd("buildPool");
-
-        return { pool };
-    },
-
-    async TEST_RANKING(message) {
-      const sourceArtists = await loadSpotify();
-      const { graph, skipped } = await buildSimilarityGraph(sourceArtists);
-
-      console.time("buildPool");
-      const pool = buildPool(graph, sourceArtists);
-      console.timeEnd("buildPool");
-
-      const listeners = await getListenerCounts(
+    const listeners = await getListenerCounts(
         pool.map(candidate => candidate.name)
-      );
+    );
 
-      const recommendations = rankPool(
+    const recommendations = rankPool(
         pool,
         listeners,
         message.strength
     );
 
     return { recommendations, skipped };
-    },
+},
+
+
 };
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
